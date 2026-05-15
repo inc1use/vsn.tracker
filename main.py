@@ -14,8 +14,8 @@ app = FastAPI()
 
 @app.get("/")
 async def read_root():
-    # Вкажи правильний шлях до твого HTML файлу
-    return FileResponse("index.html")
+    # Додаємо назву папки перед назвою файлу
+    return FileResponse("templates/index.html")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
