@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#050508">
+    <meta name="description" content="Vsn.Tracker — підбір фільмів за настроєм, новинки та розклад серіалів">
+    <title>Vsn.Tracker | Director's Cut</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { black: '#050508' },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Courier New', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-amber-500/30 selection:text-white">
+
+    <div class="ambient" aria-hidden="true">
+        <div class="ambient__orb ambient__orb--amber"></div>
+        <div class="ambient__orb ambient__orb--cyan"></div>
+    </div>
+    <div class="cyber-grid" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <header class="site-header w-full max-w-5xl mx-auto flex justify-between items-center py-6 md:py-8 px-4 mb-8 md:mb-10 relative z-10">
+        <div class="logo">
+            <span class="logo__mark" aria-hidden="true"></span>
+            <h1 class="logo__text text-lg md:text-xl font-semibold tracking-[0.25em] uppercase text-white/95">
+                Vsn<span class="logo__accent">.Tracker</span>
+            </h1>
+        </div>
+        <div class="status-pill font-mono text-white/50 uppercase">
+            <span class="status-pill__dot" aria-hidden="true"></span>
+            <span>Online</span>
+        </div>
+    </header>
+
+    <nav class="tab-nav w-full max-w-5xl mx-auto px-4 mb-8 relative z-10" aria-label="Розділи">
+        <button type="button" class="tab-btn is-active" data-tab="mood">Настрій</button>
+        <button type="button" class="tab-btn" data-tab="evening">Вечір</button>
+        <button type="button" class="tab-btn" data-tab="new">Новинки</button>
+        <button type="button" class="tab-btn" data-tab="series">Серіали</button>
+    </nav>
+
+    <main class="w-full max-w-5xl mx-auto flex flex-col gap-8 px-4 pb-20 relative z-10 flex-grow">
+
+        <!-- TAB: Mood -->
+        <div id="tab-mood" class="tab-panel is-active">
+            <section class="flex flex-col items-center text-center w-full max-w-3xl mx-auto">
+                <p class="text-[10px] font-mono tracking-[0.35em] uppercase text-amber-500/70 mb-4">AI Mood Engine</p>
+                <h2 class="hero-title text-3xl sm:text-4xl md:text-5xl font-light mb-5 tracking-wide">Сконструюй настрій</h2>
+                <p class="hero-subtitle mb-10 text-xs sm:text-sm uppercase font-mono max-w-lg px-2">
+                    Опиши атмосферу, деталі, кольори або сюжет — нейромережа підбере ідеальний кінодосвід
+                </p>
+
+                <div class="w-full glass-panel glass-panel--input rounded-xl p-1 relative group">
+                    <textarea id="moodInput" rows="4"
+                        class="w-full bg-transparent text-white/85 placeholder-white/25 text-base sm:text-lg font-light p-5 sm:p-6 outline-none resize-none leading-relaxed"
+                        placeholder="Холодне неонове місто, самотність, мало діалогів, абстрактні кадри, ембієнт саундтрек…"
+                        aria-label="Опис настрою для підбору фільму"></textarea>
+                    <div class="input-glow" aria-hidden="true"></div>
+                </div>
+
+                <button id="generateBtn" type="button"
+                    class="mt-8 btn-cyber px-10 py-4 bg-white text-black text-xs uppercase tracking-[0.2em] font-semibold">
+                    Ініціалізувати пошук
+                </button>
+
+                <p id="statusText" class="mt-6 hidden" role="status" aria-live="polite">
+                    <span class="loader font-mono text-white/40 text-xs tracking-widest uppercase">
+                        <span class="loader__bars" aria-hidden="true">
+                            <span class="loader__bar"></span>
+                            <span class="loader__bar"></span>
+                            <span class="loader__bar"></span>
+                        </span>
+                        Обробка візуальних даних…
+                    </span>
+                </p>
+            </section>
+
+            <section id="resultSection"
+                class="hidden w-full max-w-3xl mx-auto flex flex-col gap-6 mt-10 opacity-0 transition-opacity duration-500"
+                aria-label="Результати пошуку">
+                <div class="results-divider flex items-center gap-4 mb-2">
+                    <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/15 to-transparent"></div>
+                    <span class="text-[10px] font-mono tracking-widest uppercase">Знайдені збіги</span>
+                    <div class="h-px flex-grow bg-gradient-to-r from-transparent via-white/15 to-transparent"></div>
+                </div>
+                <div id="moviesContainer" class="flex flex-col gap-5"></div>
+            </section>
+        </div>
+
+        <!-- TAB: Build evening -->
+        <div id="tab-evening" class="tab-panel" hidden>
+            <div class="tab-intro max-w-2xl mx-auto">
+                <p class="text-[10px] font-mono tracking-[0.35em] uppercase text-amber-500/70 mb-3">Watch Night Builder</p>
+                <h2 class="hero-title text-2xl sm:text-3xl font-light mb-2 tracking-wide">Побудуй вечір</h2>
+                <p class="hero-subtitle text-xs sm:text-sm uppercase font-mono">Готовий план перегляду з паузами та запасним варіантом</p>
+            </div>
+
+            <form id="eveningForm" class="evening-form glass-panel rounded-xl p-5 sm:p-6 max-w-2xl mx-auto mt-8 flex flex-col gap-6">
+                <fieldset class="evening-field">
+                    <legend class="evening-field__label">Скільки часу є?</legend>
+                    <div class="chip-group" role="group" aria-label="Тривалість вечора">
+                        <label class="chip"><input type="radio" name="hours" value="2" /><span>2 год</span></label>
+                        <label class="chip"><input type="radio" name="hours" value="3" checked /><span>3 год</span></label>
+                        <label class="chip"><input type="radio" name="hours" value="4" /><span>4 год</span></label>
+                        <label class="chip"><input type="radio" name="hours" value="5" /><span>5+ год</span></label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="evening-field">
+                    <legend class="evening-field__label">З ким дивишся?</legend>
+                    <div class="chip-group">
+                        <label class="chip"><input type="radio" name="company" value="alone" checked /><span>Наодинці</span></label>
+                        <label class="chip"><input type="radio" name="company" value="couple" /><span>Двоє</span></label>
+                        <label class="chip"><input type="radio" name="company" value="friends" /><span>Компанія</span></label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="evening-field">
+                    <legend class="evening-field__label">Формат</legend>
+                    <div class="chip-group">
+                        <label class="chip"><input type="radio" name="format" value="either" checked /><span>На вибір ШІ</span></label>
+                        <label class="chip"><input type="radio" name="format" value="movie" /><span>Фільм</span></label>
+                        <label class="chip"><input type="radio" name="format" value="series" /><span>Серіал</span></label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="evening-field">
+                    <legend class="evening-field__label">Настрій <span class="text-white/30">(необов'язково)</span></legend>
+                    <div class="mood-chips mb-3 flex flex-wrap gap-2 justify-center">
+                        <button type="button" class="mood-chip" data-mood="затишний вечір, плед, какао">Затишок</button>
+                        <button type="button" class="mood-chip" data-mood="гучний екшн, адреналін, вибухи">Екшн</button>
+                        <button type="button" class="mood-chip" data-mood="романтика, тепло, без сліз">Романтика</button>
+                        <button type="button" class="mood-chip" data-mood="жахи, напруга, темрява">Жахи</button>
+                        <button type="button" class="mood-chip" data-mood="комедія, сміх, легкість">Комедія</button>
+                    </div>
+                    <textarea id="eveningMood" rows="2"
+                        class="w-full bg-white/5 border border-white/10 rounded-lg text-white/80 placeholder-white/25 text-sm p-4 outline-none resize-none focus:border-amber-500/30"
+                        placeholder="Або опиши свій вайб…"></textarea>
+                </fieldset>
+
+                <label class="evening-snacks flex items-center gap-3 cursor-pointer justify-center font-mono text-xs uppercase tracking-widest text-white/50">
+                    <input type="checkbox" id="eveningSnacks" checked class="evening-snacks__input" />
+                    <span>Паузи на попкорн / перекус</span>
+                </label>
+
+                <button type="submit" id="eveningBtn" class="btn-cyber w-full sm:w-auto mx-auto px-10 py-4 bg-white text-black text-xs uppercase tracking-[0.2em] font-semibold">
+                    Скласти план вечора
+                </button>
+            </form>
+
+            <p id="eveningLoading" class="tab-loading hidden mt-8">
+                <span class="loader font-mono text-white/40 text-xs tracking-widest uppercase">
+                    <span class="loader__bars" aria-hidden="true">
+                        <span class="loader__bar"></span><span class="loader__bar"></span><span class="loader__bar"></span>
+                    </span>
+                    Плануємо твій ідеальний вечір…
+                </span>
+            </p>
+            <p id="eveningError" class="tab-error hidden mt-6" role="alert"></p>
+
+            <div id="eveningResult" class="hidden max-w-2xl mx-auto mt-10 evening-result" aria-live="polite"></div>
+        </div>
+
+        <!-- TAB: New movies -->
+        <div id="tab-new" class="tab-panel" hidden>
+            <div class="tab-intro">
+                <p class="text-[10px] font-mono tracking-[0.35em] uppercase text-amber-500/70 mb-3">Vsn. Curator</p>
+                <h2 class="hero-title text-2xl sm:text-3xl font-light mb-2 tracking-wide">Новинки та популярність</h2>
+                <p class="hero-subtitle text-xs sm:text-sm uppercase font-mono">Новинки та пошук фільму в Google</p>
+            </div>
+
+            <form id="movieSearchForm" class="movie-search glass-panel rounded-xl p-2 max-w-xl mx-auto mt-6 flex gap-2" role="search" action="https://www.google.com/search" method="get" target="_blank" rel="noopener noreferrer">
+                <input type="hidden" name="q" id="movieSearchQuery" value="" />
+                <input type="search" id="movieSearchInput"
+                    class="movie-search__input flex-grow bg-transparent text-white/85 placeholder-white/30 text-sm px-4 py-3 outline-none"
+                    placeholder="Назва фільму…" autocomplete="off" minlength="2" aria-label="Пошук фільму в Google" required />
+                <button type="submit"
+                    class="btn-cyber shrink-0 px-5 py-3 bg-white text-black text-[10px] uppercase tracking-widest font-semibold">Google</button>
+            </form>
+
+            <p id="newLoading" class="tab-loading hidden">
+                <span class="loader font-mono text-white/40 text-xs tracking-widest uppercase">
+                    <span class="loader__bars" aria-hidden="true">
+                        <span class="loader__bar"></span><span class="loader__bar"></span><span class="loader__bar"></span>
+                    </span>
+                    Завантаження новинок…
+                </span>
+            </p>
+            <p id="newError" class="tab-error hidden" role="alert"></p>
+
+            <div id="newContent" class="hidden flex flex-col gap-12 mt-10">
+                <section>
+                    <h3 class="section-label">Зараз у кіно</h3>
+                    <div id="nowPlayingGrid" class="media-grid"></div>
+                </section>
+                <section>
+                    <h3 class="section-label">Скоро виходять</h3>
+                    <div id="upcomingGrid" class="media-grid"></div>
+                </section>
+                <section>
+                    <h3 class="section-label">Популярні</h3>
+                    <div id="popularGrid" class="media-grid"></div>
+                </section>
+            </div>
+        </div>
+
+        <!-- TAB: TV series -->
+        <div id="tab-series" class="tab-panel" hidden>
+            <div class="tab-intro">
+                <p class="text-[10px] font-mono tracking-[0.35em] uppercase text-cyan-400/70 mb-3">Episode Tracker</p>
+                <h2 class="hero-title text-2xl sm:text-3xl font-light mb-2 tracking-wide">Наступні серії</h2>
+                <p class="hero-subtitle text-xs sm:text-sm uppercase font-mono">Розклад через TVmaze — без ключа API</p>
+            </div>
+
+            <p id="seriesLoading" class="tab-loading hidden">
+                <span class="loader font-mono text-white/40 text-xs tracking-widest uppercase">
+                    <span class="loader__bars" aria-hidden="true">
+                        <span class="loader__bar"></span><span class="loader__bar"></span><span class="loader__bar"></span>
+                    </span>
+                    Завантаження розкладу…
+                </span>
+            </p>
+            <p id="seriesError" class="tab-error hidden" role="alert"></p>
+            <div id="seriesContent" class="hidden flex flex-col gap-8"></div>
+        </div>
+    </main>
+
+    <footer class="site-footer w-full max-w-5xl mx-auto py-8 px-4 text-center font-mono relative z-10 mt-auto">
+        Vsn.Tracker · Director's Cut · 2026
+    </footer>
+
+    <script>
+        const PLACEHOLDER = 'https://placehold.co/300x450/111118/444?text=No+Poster';
+        const searchIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5M6 18L18 6m0 0h-7.5m7.5 0V6"/></svg>`;
+
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const panels = {
+            mood: document.getElementById('tab-mood'),
+            evening: document.getElementById('tab-evening'),
+            new: document.getElementById('tab-new'),
+            series: document.getElementById('tab-series'),
+        };
+
+        let newLoaded = false;
+        let seriesLoaded = false;
+
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str ?? '';
+            return d.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const d = new Date(dateStr + 'T12:00:00');
+            return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function formatDateShort(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T12:00:00');
+            return d.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' });
+        }
+
+        function dateGroupLabel(dateStr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(dateStr + 'T12:00:00');
+            target.setHours(0, 0, 0, 0);
+            const diff = Math.round((target - today) / 86400000);
+            if (diff === 0) return 'Сьогодні';
+            if (diff === 1) return 'Завтра';
+            if (diff > 1 && diff <= 7) return 'Цього тижня';
+            return formatDate(dateStr);
+        }
+
+        function switchTab(name) {
+            tabButtons.forEach(btn => {
+                const active = btn.dataset.tab === name;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-selected', active);
+            });
+            Object.entries(panels).forEach(([key, panel]) => {
+                const show = key === name;
+                panel.classList.toggle('is-active', show);
+                panel.hidden = !show;
+            });
+            if (name === 'new' && !newLoaded) loadNewMovies();
+            if (name === 'series' && !seriesLoaded) loadSeries();
+        }
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        /* ——— Mood tab ——— */
+        const generateBtn = document.getElementById('generateBtn');
+        const moodInput = document.getElementById('moodInput');
+        const statusText = document.getElementById('statusText');
+        const resultSection = document.getElementById('resultSection');
+        const moviesContainer = document.getElementById('moviesContainer');
+
+        function setMoodLoading(on) {
+            generateBtn.classList.toggle('is-loading', on);
+            generateBtn.disabled = on;
+            statusText.classList.toggle('hidden', !on);
+        }
+
+        function showMoodResults() {
+            resultSection.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                resultSection.classList.remove('opacity-0');
+                resultSection.classList.add('opacity-100');
+            });
+        }
+
+        function renderMoodCard(movie) {
+            const poster = movie.poster || PLACEHOLDER;
+            const searchLink = `https://www.google.com/search?q=${encodeURIComponent(movie.title + ' дивитись онлайн українською')}`;
+            return `
+                <article class="movie-card glass-panel glass-panel--card p-4 md:p-6 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-5 md:gap-6 group">
+                    <div class="poster-wrap w-24 h-36 md:w-28 md:h-40 shrink-0">
+                        <img src="${escapeHtml(poster)}" alt="Постер: ${escapeHtml(movie.title)}" class="w-full h-full object-cover" loading="lazy">
+                    </div>
+                    <div class="flex-grow min-w-0 text-left">
+                        <h3 class="text-xl md:text-2xl font-medium text-white/95 mb-2 leading-tight">
+                            ${escapeHtml(movie.title)}
+                            <span class="movie-year">${escapeHtml(movie.year || '—')}</span>
+                        </h3>
+                        <p class="match-reason max-w-xl">${escapeHtml(movie.match_reason)}</p>
+                    </div>
+                    <a href="${searchLink}" target="_blank" rel="noopener noreferrer" class="btn-find shrink-0 w-full md:w-auto justify-center">
+                        Знайти фільм ${searchIcon}
+                    </a>
+                </article>`;
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            const query = moodInput.value.trim();
+            if (!query) { moodInput.focus(); return; }
+
+            setMoodLoading(true);
+            resultSection.classList.add('opacity-0', 'hidden');
+
+            try {
+                const res = await fetch('/api/find-mood', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mood: query }),
+                });
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+                moviesContainer.innerHTML = '';
+                (data.movies || []).forEach(m => moviesContainer.insertAdjacentHTML('beforeend', renderMoodCard(m)));
+                if (data.movies?.length) {
+                    showMoodResults();
+                    resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } catch (e) {
+                setMoodLoading(false);
+                statusText.classList.remove('hidden');
+                statusText.innerHTML = '<span class="font-mono text-red-400/90 text-xs tracking-widest uppercase">Помилка з\'єднання</span>';
+                return;
+            }
+            setMoodLoading(false);
+            statusText.classList.add('hidden');
+            statusText.innerHTML = `<span class="loader font-mono text-white/40 text-xs tracking-widest uppercase">
+                <span class="loader__bars" aria-hidden="true"><span class="loader__bar"></span><span class="loader__bar"></span><span class="loader__bar"></span></span>
+                Обробка візуальних даних…</span>`;
+        });
+
+        moodInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generateBtn.click();
+        });
+
+        /* ——— Evening tab ——— */
+        const eveningForm = document.getElementById('eveningForm');
+        const eveningMood = document.getElementById('eveningMood');
+        const eveningBtn = document.getElementById('eveningBtn');
+        const eveningLoading = document.getElementById('eveningLoading');
+        const eveningError = document.getElementById('eveningError');
+        const eveningResult = document.getElementById('eveningResult');
+
+        document.querySelectorAll('.mood-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                eveningMood.value = chip.dataset.mood;
+                document.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('is-selected'));
+                chip.classList.add('is-selected');
+            });
+        });
+
+        function getRadio(name) {
+            return eveningForm.querySelector(`input[name="${name}"]:checked`)?.value;
+        }
+
+        function timelineIcon(type) {
+            if (type === 'watch') return '🎬';
+            if (type === 'break') return '🍿';
+            return '✨';
+        }
+
+        function renderTimelineItem(item, index) {
+            const isWatch = item.type === 'watch';
+            const dur = item.duration_minutes ? ` · ${item.duration_minutes} хв` : '';
+
+            if (isWatch) {
+                const poster = item.poster_url || PLACEHOLDER;
+                const ep = item.episode_info ? `<span class="episode-code">${escapeHtml(item.episode_info)}</span>` : '';
+                const searchLink = `https://www.google.com/search?q=${encodeURIComponent(item.title + ' дивитись онлайн українською')}`;
+                return `
+                    <li class="timeline-item timeline-item--watch" style="--delay: ${index * 0.08}s">
+                        <div class="timeline-item__time font-mono">${escapeHtml(item.time_label)}</div>
+                        <div class="timeline-item__card glass-panel glass-panel--card">
+                            <div class="timeline-item__line" aria-hidden="true"></div>
+                            <div class="timeline-item__content">
+                                <span class="timeline-item__icon">${timelineIcon(item.type)}</span>
+                                <div class="timeline-watch flex gap-4">
+                                    <div class="poster-wrap w-16 h-24 shrink-0">
+                                        <img src="${escapeHtml(poster)}" alt="" loading="lazy">
+                                    </div>
+                                    <div class="min-w-0 flex-grow">
+                                        <p class="timeline-item__label">${escapeHtml(item.label || 'Перегляд')}</p>
+                                        <h4 class="timeline-watch__title">${escapeHtml(item.title)} <span class="movie-year">${escapeHtml(item.year || '')}</span></h4>
+                                        ${ep}
+                                        <p class="timeline-item__desc">${escapeHtml(item.description)}</p>
+                                        <p class="timeline-item__dur font-mono text-[10px] text-white/35 uppercase tracking-widest mt-2">${dur.trim()}</p>
+                                        <a href="${searchLink}" target="_blank" rel="noopener noreferrer" class="btn-find mt-3 inline-flex">Знайти ${searchIcon}</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>`;
+            }
+
+            return `
+                <li class="timeline-item timeline-item--${item.type}" style="--delay: ${index * 0.08}s">
+                    <div class="timeline-item__time font-mono">${escapeHtml(item.time_label)}</div>
+                    <div class="timeline-item__card glass-panel">
+                        <div class="timeline-item__line" aria-hidden="true"></div>
+                        <div class="timeline-item__content">
+                            <span class="timeline-item__icon">${timelineIcon(item.type)}</span>
+                            <p class="timeline-item__label">${escapeHtml(item.label || '')}</p>
+                            <p class="timeline-item__desc">${escapeHtml(item.description)}</p>
+                            ${dur ? `<p class="timeline-item__dur font-mono text-[10px] text-white/35 uppercase tracking-widest mt-1">${dur.trim()}</p>` : ''}
+                        </div>
+                    </div>
+                </li>`;
+        }
+
+        function renderEveningPlan(plan) {
+            const hours = Math.floor((plan.total_minutes || 0) / 60);
+            const mins = (plan.total_minutes || 0) % 60;
+            const durationLabel = hours ? `${hours} год ${mins} хв` : `${mins} хв`;
+
+            const timeline = (plan.timeline || []).map(renderTimelineItem).join('');
+            const backup = plan.backup || {};
+            const backupPoster = backup.poster_url || PLACEHOLDER;
+            const backupLink = backup.title
+                ? `https://www.google.com/search?q=${encodeURIComponent(backup.title + ' дивитись онлайн українською')}`
+                : '#';
+
+            eveningResult.innerHTML = `
+                <header class="evening-plan-header text-center mb-8">
+                    <h3 class="text-2xl font-light text-white/95 mb-2">${escapeHtml(plan.title)}</h3>
+                    <p class="text-sm text-white/50 font-mono uppercase tracking-widest">${escapeHtml(plan.subtitle || '')}</p>
+                    <p class="evening-plan-duration mt-3 font-mono text-xs text-amber-500/80 uppercase tracking-widest">≈ ${durationLabel}</p>
+                </header>
+                <ol class="evening-timeline">${timeline}</ol>
+                ${backup.title ? `
+                <aside class="evening-backup glass-panel glass-panel--card mt-10 p-5 rounded-xl">
+                    <p class="section-label mb-4">Запасний варіант</p>
+                    <div class="flex gap-4 items-start">
+                        <div class="poster-wrap w-14 h-20 shrink-0">
+                            <img src="${escapeHtml(backupPoster)}" alt="" loading="lazy">
+                        </div>
+                        <div class="min-w-0 flex-grow">
+                            <h4 class="text-lg text-white/90">${escapeHtml(backup.title)} <span class="movie-year">${escapeHtml(backup.year || '')}</span></h4>
+                            <p class="match-reason mt-2">${escapeHtml(backup.reason)}</p>
+                            <a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="btn-find mt-3 inline-flex">Знайти ${searchIcon}</a>
+                        </div>
+                    </div>
+                </aside>` : ''}
+                ${plan.tip ? `<p class="evening-tip mt-8 text-center text-sm text-white/45 italic">💡 ${escapeHtml(plan.tip)}</p>` : ''}
+            `;
+            eveningResult.classList.remove('hidden');
+            eveningResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        eveningForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            eveningError.classList.add('hidden');
+            eveningResult.classList.add('hidden');
+            eveningBtn.classList.add('is-loading');
+            eveningBtn.disabled = true;
+            eveningLoading.classList.remove('hidden');
+
+            const payload = {
+                hours: parseFloat(getRadio('hours') || '3'),
+                company: getRadio('company') || 'alone',
+                mood: eveningMood.value.trim(),
+                format: getRadio('format') || 'either',
+                snacks: document.getElementById('eveningSnacks').checked,
+            };
+
+            try {
+                const res = await fetch('/api/build-evening', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Помилка');
+                renderEveningPlan(data);
+            } catch (err) {
+                eveningError.textContent = err.message || 'Не вдалося скласти план вечора';
+                eveningError.classList.remove('hidden');
+            } finally {
+                eveningBtn.classList.remove('is-loading');
+                eveningBtn.disabled = false;
+                eveningLoading.classList.add('hidden');
+            }
+        });
+
+        /* ——— New movies tab ——— */
+        function googleSearchUrl(title) {
+            return `https://www.google.com/search?q=${encodeURIComponent(title + ' дивитись онлайн українською')}`;
+        }
+
+        function renderMediaCard(item) {
+            const year = (item.release_date || '').toString().slice(0, 4) || '—';
+            const rating = item.vote_average ? item.vote_average.toFixed(1) : '—';
+            const pop = item.popularity ? Math.round(item.popularity) : 0;
+            const showPop = pop > 0;
+            const showRating = item.vote_average > 0;
+            return `
+                <article class="media-card glass-panel glass-panel--card">
+                    <div class="media-card__poster">
+                        <img src="${escapeHtml(item.poster_url || PLACEHOLDER)}" alt="${escapeHtml(item.title)}" loading="lazy">
+                        ${showRating ? `<span class="media-card__rating" title="Рейтинг IMDb">★ ${rating}</span>` : ''}
+                    </div>
+                    <div class="media-card__body">
+                        <h4 class="media-card__title">${escapeHtml(item.title)}</h4>
+                        <p class="media-card__meta">
+                            <span class="movie-year">${escapeHtml(year)}</span>
+                            ${showPop ? `<span class="media-card__pop" title="Популярність">🔥 ${pop}</span>` : ''}
+                        </p>
+                        ${item.overview ? `<p class="media-card__overview">${escapeHtml(item.overview)}</p>` : ''}
+                        <a href="${googleSearchUrl(item.title)}" target="_blank" rel="noopener noreferrer" class="btn-find media-card__find w-full justify-center mt-2">
+                            Знайти в Google ${searchIcon}
+                        </a>
+                    </div>
+                </article>`;
+        }
+
+        function fillGrid(el, items) {
+            if (!items?.length) {
+                el.innerHTML = '<p class="empty-hint font-mono text-xs uppercase tracking-widest text-white/30">Немає даних</p>';
+                return;
+            }
+            el.innerHTML = items.map(renderMediaCard).join('');
+        }
+
+        document.getElementById('movieSearchForm')?.addEventListener('submit', (e) => {
+            const q = document.getElementById('movieSearchInput').value.trim();
+            if (q.length < 2) {
+                e.preventDefault();
+                document.getElementById('movieSearchInput').focus();
+                return;
+            }
+            document.getElementById('movieSearchQuery').value = q + ' дивитись онлайн українською';
+        });
+
+        async function loadNewMovies() {
+            const loading = document.getElementById('newLoading');
+            const error = document.getElementById('newError');
+            const content = document.getElementById('newContent');
+
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            content.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/movies/discover');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Помилка завантаження');
+
+                fillGrid(document.getElementById('nowPlayingGrid'), data.now_playing);
+                fillGrid(document.getElementById('upcomingGrid'), data.upcoming);
+                fillGrid(document.getElementById('popularGrid'), data.popular);
+
+                newLoaded = true;
+                content.classList.remove('hidden');
+            } catch (e) {
+                error.textContent = e.message || 'Не вдалося завантажити новинки (Gemini / OMDb).';
+                error.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        /* ——— Series tab ——— */
+        function renderEpisodeRow(ep) {
+            const code = `S${String(ep.season).padStart(2, '0')}E${String(ep.episode).padStart(2, '0')}`;
+            return `
+                <article class="episode-row glass-panel glass-panel--card">
+                    <div class="episode-row__poster poster-wrap w-14 h-20 shrink-0">
+                        <img src="${escapeHtml(ep.poster_url || PLACEHOLDER)}" alt="${escapeHtml(ep.show_name)}" loading="lazy">
+                    </div>
+                    <div class="episode-row__main min-w-0 flex-grow">
+                        <h4 class="episode-row__show">${escapeHtml(ep.show_name)}</h4>
+                        <p class="episode-row__ep">
+                            <span class="episode-code">${code}</span>
+                            ${escapeHtml(ep.episode_name)}
+                        </p>
+                        ${ep.overview ? `<p class="episode-row__overview">${escapeHtml(ep.overview)}</p>` : ''}
+                        ${ep.network ? `<p class="episode-row__network font-mono text-[10px] uppercase tracking-widest text-white/35">${escapeHtml(ep.network)}</p>` : ''}
+                    </div>
+                    <div class="episode-row__date shrink-0 text-right">
+                        <span class="episode-date-badge">${formatDateShort(ep.air_date)}</span>
+                        <span class="episode-date-full font-mono text-[10px] text-white/40 block mt-1">${formatDate(ep.air_date)}</span>
+                    </div>
+                </article>`;
+        }
+
+        async function loadSeries() {
+            const loading = document.getElementById('seriesLoading');
+            const error = document.getElementById('seriesError');
+            const content = document.getElementById('seriesContent');
+
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            content.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/tv/upcoming-episodes');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Помилка завантаження');
+
+                const episodes = data.episodes || [];
+                if (!episodes.length) {
+                    content.innerHTML = '<p class="empty-hint font-mono text-xs uppercase tracking-widest text-white/30 text-center py-12">Найближчих серій не знайдено</p>';
+                } else {
+                    const groups = {};
+                    episodes.forEach(ep => {
+                        const label = dateGroupLabel(ep.air_date);
+                        if (!groups[label]) groups[label] = [];
+                        groups[label].push(ep);
+                    });
+                    const order = ['Сьогодні', 'Завтра', 'Цього тижня'];
+                    const labels = [
+                        ...order.filter(l => groups[l]),
+                        ...Object.keys(groups).filter(l => !order.includes(l)).sort((a, b) => {
+                            const da = groups[a][0]?.air_date || '';
+                            const db = groups[b][0]?.air_date || '';
+                            return da.localeCompare(db);
+                        }),
+                    ];
+                    content.innerHTML = labels.map(label => `
+                        <section>
+                            <h3 class="section-label">${escapeHtml(label)}</h3>
+                            <div class="episode-list">${groups[label].map(renderEpisodeRow).join('')}</div>
+                        </section>
+                    `).join('');
+                }
+
+                seriesLoaded = true;
+                content.classList.remove('hidden');
+            } catch (e) {
+                error.textContent = e.message || 'Не вдалося завантажити розклад (TVmaze).';
+                error.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
