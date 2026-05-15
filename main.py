@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.responses import FileResponse
 
 from services.evening_planner import build_evening
 from services.gemini_ai import find_movies_by_mood
@@ -10,6 +11,11 @@ from services.movies_feed import get_movie_discover
 from services.tv_schedule import get_upcoming_episodes
 
 app = FastAPI()
+
+@app.get("/")
+async def read_root():
+    # Вкажи правильний шлях до твого HTML файлу
+    return FileResponse("index.html")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
